@@ -99,8 +99,7 @@ impl WinOverlappedFile {
         let r = unsafe {
             WriteFile(
                 self.file,
-                Some(buf.as_ptr() as _),
-                buf.len() as u32,
+                Some(buf),
                 Some(&mut size),
                 Some(overlapped),
             )
