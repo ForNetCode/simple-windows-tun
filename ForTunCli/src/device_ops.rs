@@ -9,20 +9,12 @@ use std::thread::sleep;
 use std::time::Duration;
 use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR};
 use windows::w;
-use windows::Win32::Devices::DeviceAndDriverInstallation::{
-    CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW,
-    CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW,
-    SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS,
-    CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM,
-    CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET,
-    HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA,
-    SP_REMOVEDEVICE_PARAMS,
-};
+use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS, SetupDiEnumDriverInfoW};
 use windows::Win32::Devices::Enumeration::Pnp::{
     SWDeviceCapabilitiesDriverRequired, SWDeviceCapabilitiesSilentInstall, SwDeviceClose,
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE};
+use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion};
 use windows::Win32::Foundation::{
     CloseHandle, GetLastError, ERROR_NO_MORE_ITEMS, HANDLE, NO_ERROR, WAIT_OBJECT_0,
 };
@@ -140,12 +132,16 @@ pub fn init_device(
     name: &str,
     inf_path: &str,
 ) -> anyhow::Result<AdapterDevice> {
-    //let inf_path = "C:/DriverTest/Drivers/ForTun.inf";
     let devices = enum_device(&FOR_TUN_DEV_CLASS, FOR_TUN_HWID)?;
     if devices.is_empty() {
         // There is no devices
         install_driver(inf_path)?; // TODO: this may install multiple times. need add more exact function to check if driver installed.
     } else {
+
+        let has_old = devices.iter().find(|(_, version)| {
+
+            false
+        }).is_some();
         //TODO: compare version, if old exists, stop and remove all devices and reinstall new driver.
     }
 
@@ -624,12 +620,15 @@ fn remove_device(dev_info: HDEVINFO, dev_info_data: &SP_DEVINFO_DATA) {
     };
 }
 
-fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<String>> {
+fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String, String)>> {
     let mut device_list_len = 0;
     let device_class_id = HSTRING::from(format!("{{{device_class_id:?}}}\0"));
     let device_class_id = PCWSTR(device_class_id.as_ptr());
 
     let flag = CM_GETIDLIST_FILTER_CLASS;
+    unsafe {
+
+    }
     let cr = unsafe { CM_Get_Device_ID_List_SizeW(&mut device_list_len, device_class_id, flag) };
 
     if cr != CR_SUCCESS {
@@ -653,7 +652,7 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<String>
     let mut index = 0;
     let mut device_id = PCWSTR::from_raw(buffer[index..].as_mut_ptr());
 
-    let mut result: Vec<String> = Vec::new();
+    let mut result: Vec<(String,String)> = Vec::new();
 
     while buffer[index] != 0 && !device_id.is_null() {
         let cr = unsafe {
@@ -675,33 +674,13 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<String>
                 }
             }
         } else {
-            unsafe {
-                CM_Get_DevNode_PropertyW(
-                    dev_inst,
-                    &DEVPKEY_Device_HardwareIds,
-                    &mut property_type,
-                    Some(property_value.as_mut_ptr()),
-                    &mut property_value_length,
-                    0,
-                );
-            }
+            let name = _cm_get_string_property(dev_inst,&DEVPKEY_Device_HardwareIds, &mut property_value)?;
 
-            if property_value_length > 0 {
+            if name == hwid {
                 unsafe {
-                    property_value.set_len(property_value_length as usize);
-                };
-
-                let name = unsafe {
-                    PCWSTR::from_raw(property_value.as_mut_ptr().cast::<u16>()).to_string()
-                };
-
-                if let Ok(name) = name {
-                    if name == hwid {
-                        unsafe {
-                            if let Ok(device_id) = device_id.to_string() {
-                                result.push(device_id);
-                            }
-                        }
+                    if let Ok(device_id) = device_id.to_string() {
+                        let version = _cm_get_string_property(dev_inst, &DEVPKEY_Device_DriverVersion, &mut property_value)?;
+                        result.push((device_id, version));
                     }
                 }
             }
@@ -718,30 +697,31 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<String>
     Ok(result)
 }
 
-#[cfg(test)]
-mod test {
-    use windows::core::PCSTR;
-    use windows::Win32::Storage::FileSystem::{
-        CreateFileA, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
-        FILE_GENERIC_WRITE, FILE_SHARE_MODE, FILE_SHARE_NONE, OPEN_EXISTING,
-    };
+fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Vec<u8>) -> anyhow::Result<String> {
+    let mut property_type: DEVPROPTYPE = DEVPROPTYPE::default();
 
-    #[test]
-    fn test() {
-        let a = PCSTR::from_raw("\\\\.\\ovpn-dco\0".as_ptr());
+    let mut property_value_length = 0;
 
-        let a = unsafe {
-            CreateFileA(
-                a,
-                FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                FILE_SHARE_NONE,
-                None,
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_SYSTEM | FILE_FLAG_OVERLAPPED,
-                None,
-            )
-        }
-        .unwrap();
-        println!("finish....");
+    unsafe {
+        CM_Get_DevNode_PropertyW(
+            dev_inst,
+            key,
+            &mut property_type,
+            Some(buf.as_mut_ptr()),
+            &mut property_value_length,
+            0,
+        );
     }
+    if property_value_length > 0 {
+        unsafe {
+            property_value.set_len(property_value_length as usize);
+        };
+
+        let value = unsafe {
+            PCWSTR::from_raw(property_value.as_mut_ptr().cast::<u16>()).to_string()
+        };
+        return Ok(value?);
+
+    }
+    bail!("can not read device property key {:?}", key)
 }
