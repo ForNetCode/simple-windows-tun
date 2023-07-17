@@ -7,6 +7,7 @@ use anyhow::{anyhow, bail, Context};
 use cidr_utils::cidr::IpCidr;
 use std::thread::sleep;
 use std::time::Duration;
+use version_compare::Version;
 use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR};
 use windows::w;
 use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS, SetupDiEnumDriverInfoW};
@@ -126,7 +127,6 @@ impl AdapterDevice {
     }
 }
 
-//TODO: inf_path change to compile path
 pub fn init_device(
     device_guid: &GUID,
     name: &str,
@@ -137,12 +137,14 @@ pub fn init_device(
         // There is no devices
         install_driver(inf_path)?; // TODO: this may install multiple times. need add more exact function to check if driver installed.
     } else {
-
-        let has_old = devices.iter().find(|(_, version)| {
-
-            false
+        let current_version = Version::from(env!( "CARGO_PKG_VERSION" )).unwrap();
+        let has_old = devices.iter().find(|(_, version_str)| {
+            let working_driver_version:Version = Version::from(version_str).unwrap();
+            current_version > working_driver_version
         }).is_some();
-        //TODO: compare version, if old exists, stop and remove all devices and reinstall new driver.
+        if has_old {
+            return bail!("There is running old driver device, please stop it before running app")
+        }
     }
 
     let (device_handler, device_instance_id) =
