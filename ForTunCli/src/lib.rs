@@ -62,6 +62,7 @@ impl Drop for WriteFile {
 pub type TunSocket = (ReadFile, WriteFile, AdapterDevice);
 
 pub fn create_async_tun(device_id: &GUID, name: &str) -> anyhow::Result<TunSocket> {
+    //TODO: inf_path change to compile path
     let device = init_device(device_id, name, "C:/DriverTest/Drivers/ForTun.inf")?;
     let file = device.start_adapter()?;
     let file = match WinOverlappedFile::new(file) {
