@@ -5,6 +5,7 @@ use std::process::Command;
 
 use anyhow::{anyhow, bail, Context};
 use cidr_utils::cidr::IpCidr;
+use std::fs::Path;
 use std::thread::sleep;
 use std::time::Duration;
 use version_compare::Version;
@@ -127,10 +128,10 @@ impl AdapterDevice {
     }
 }
 
-pub fn init_device(
+pub fn init_device<T:AsRef<Path>>(
     device_guid: &GUID,
     name: &str,
-    inf_path: &str,
+    inf_path: T,
 ) -> anyhow::Result<AdapterDevice> {
     let devices = enum_device(&FOR_TUN_DEV_CLASS, FOR_TUN_HWID)?;
     if devices.is_empty() {
