@@ -11,7 +11,7 @@ use std::time::Duration;
 use version_compare::Version;
 use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR};
 use windows::w;
-use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS, SetupDiEnumDriverInfoW};
+use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS};
 use windows::Win32::Devices::Enumeration::Pnp::{
     SWDeviceCapabilitiesDriverRequired, SWDeviceCapabilitiesSilentInstall, SwDeviceClose,
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
@@ -144,7 +144,7 @@ pub fn init_device<T:AsRef<Path>>(
             current_version > working_driver_version
         }).is_some();
         if has_old {
-            return bail!("There is running old driver device, please stop it before running app")
+            bail!("There is running old driver device, please stop it before running app")
         }
     }
 
@@ -347,7 +347,7 @@ unsafe extern "system" fn creation_callback(
     context: *const c_void,
     _device_instance_id: PCWSTR,
 ) {
-    let mut context = &mut *(context as *mut CreateDeviceContext);
+    let context = &mut *(context as *mut CreateDeviceContext);
     if _create_result.is_ok() {
         context.instance_id = _device_instance_id.to_string().unwrap();
         context.success = true;
@@ -629,9 +629,6 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
     let device_class_id = PCWSTR(device_class_id.as_ptr());
 
     let flag = CM_GETIDLIST_FILTER_CLASS;
-    unsafe {
-
-    }
     let cr = unsafe { CM_Get_Device_ID_List_SizeW(&mut device_list_len, device_class_id, flag) };
 
     if cr != CR_SUCCESS {
@@ -647,11 +644,7 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
     }
 
     let mut dev_inst: u32 = 0;
-    let mut property_type: DEVPROPTYPE = DEVPROPTYPE::default();
-
     let mut property_value: Vec<u8> = Vec::with_capacity(2048);
-    let mut property_value_length = 0;
-
     let mut index = 0;
     let mut device_id = PCWSTR::from_raw(buffer[index..].as_mut_ptr());
 
@@ -710,7 +703,7 @@ fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Ve
             dev_inst,
             key,
             &mut property_type,
-            Some(buf.as_mut_ptr()),
+            Some(property_value.as_mut_ptr()),
             &mut property_value_length,
             0,
         );
