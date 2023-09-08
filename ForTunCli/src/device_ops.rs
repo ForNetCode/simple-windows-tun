@@ -1,11 +1,11 @@
 use std::ffi::c_void;
 use std::mem::{size_of, zeroed};
 use std::net::IpAddr;
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context};
 use cidr_utils::cidr::IpCidr;
-use std::fs::Path;
 use std::thread::sleep;
 use std::time::Duration;
 use version_compare::Version;
@@ -176,8 +176,8 @@ pub fn init_device<T:AsRef<Path>>(
     Ok(device)
 }
 
-fn install_driver(inf_path: &str) -> anyhow::Result<()> {
-    let inf_path = HSTRING::from(inf_path);
+fn install_driver<T:AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
+    let inf_path = HSTRING::from(inf_path.as_ref());
     let inf_path = PCWSTR(inf_path.as_ptr());
 
     let ret = unsafe {
