@@ -74,6 +74,8 @@
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
+    <NetAdapterDriver>true</NetAdapterDriver>
+    <NETADAPTER_VERSION_MAJOR>2</NETADAPTER_VERSION_MAJOR>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
