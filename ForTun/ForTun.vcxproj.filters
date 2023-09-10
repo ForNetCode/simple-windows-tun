@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
+    <None Include="fortun.ddf" />
   </ItemGroup>
   <ItemGroup>
     <Inf Include="ForTun.inf">
