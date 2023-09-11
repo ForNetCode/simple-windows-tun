@@ -60,37 +60,7 @@ impl AdapterDevice {
         }
     }
 
-    pub fn start_adapter(&self) -> anyhow::Result<HANDLE> {
-        //println!("interface_id:{}",self.interface_id);
-        /*
-           let file = OpenOptions::new()
-               .write(true)
-               .read(true)
-               .create(false)
-               //.custom_flags(0x40000000)
-               //.custom_flags(FILE_FLAG_OVERLAPPED.0|FILE_ATTRIBUTE_SYSTEM.0)
-               //.share_mode()
-               .open(self.interface_id.clone())?;
-
-
-           let result = unsafe {
-               DeviceIoControl(
-                   HANDLE(file.as_raw_handle() as _),
-                   FOR_TUN_IOCTL_OPEN_ADAPTER,
-                   None,
-                   0,
-                   None,
-                   0,
-                   None,
-                   None,
-               )
-               .as_bool()
-           };
-           if !result {
-               bail!("init adapter error: {:?}", unsafe { GetLastError() })
-           }
-
-        */
+    pub(crate) fn start_adapter(&self) -> anyhow::Result<HANDLE> {
 
         let file = unsafe {
             let name = HSTRING::from(self.interface_id.clone());

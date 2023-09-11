@@ -9,12 +9,8 @@ pub struct WinOverlappedFile {
 
 impl WinOverlappedFile {
     pub fn new(file: HANDLE) -> anyhow::Result<Self> {
-        //let mut overlapped = OVERLAPPED::default();
-        //overlapped.hEvent = unsafe {CreateEventW(None, false, false, None)}?;
-
         Ok(Self {
             file,
-            //read_overlapped: overlapped,
         })
     }
 
