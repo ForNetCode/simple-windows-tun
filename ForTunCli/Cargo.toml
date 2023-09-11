@@ -15,10 +15,12 @@ windows = { version = "0.48.0", features = ["Win32_System_IO", "Win32_Storage_Fi
 anyhow = "1"
 scopeguard = "1"
 local-encoding = "*"
-tokio = {version = "1", features = ["rt", "macros"]}
+tokio = {version = "1"}
 packet = "0.1"
 cidr-utils = "0.5"
 tracing = "0.1"
 version-compare = "0.1.1"
 [dev-dependencies]
 tracing-subscriber = "0.3"
+tracing-test = "0.2"
+tokio = {version = "1", features = ["full"]}
