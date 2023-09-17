@@ -9,17 +9,14 @@ use cidr_utils::cidr::IpCidr;
 use std::thread::sleep;
 use std::time::Duration;
 use version_compare::Version;
-use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR};
-use windows::w;
+use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR, w};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS};
 use windows::Win32::Devices::Enumeration::Pnp::{
     SWDeviceCapabilitiesDriverRequired, SWDeviceCapabilitiesSilentInstall, SwDeviceClose,
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion};
-use windows::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_NO_MORE_ITEMS, HANDLE, NO_ERROR, WAIT_OBJECT_0,
-};
+use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_NO_MORE_ITEMS, HANDLE, NO_ERROR, WAIT_OBJECT_0, ERROR_IO_PENDING};
 use windows::Win32::NetworkManagement::IpHelper::GetAdapterIndex;
 use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING};
 use windows::Win32::System::Registry::{
@@ -66,7 +63,7 @@ impl AdapterDevice {
             let name = HSTRING::from(self.interface_id.clone());
             CreateFileW(
                 PCWSTR(name.as_ptr()),
-                (FILE_GENERIC_READ | FILE_GENERIC_WRITE).0,
+                FILE_GENERIC_READ.0| FILE_GENERIC_WRITE.0,
                 FILE_SHARE_NONE,
                 None,
                 OPEN_EXISTING,
@@ -86,12 +83,12 @@ impl AdapterDevice {
                 None,
                 None,
             )
-            .as_bool()
+            .is_ok()
         };
 
         if !result {
-            unsafe { CloseHandle(file) };
-            bail!("init adapter error: {:?}", unsafe { GetLastError() })
+            let _ = unsafe { CloseHandle(file) };
+            bail!("init adapter error: {:?}", result)
         }
 
         Ok(file)
@@ -161,12 +158,12 @@ fn install_driver<T:AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
             None,
         )
     };
-    if !ret.as_bool() {
+    if !ret.is_ok() {
         unsafe {
             return Err(anyhow!(
-                "install driver:{} fail, code:{}",
+                "install driver:{} fail, code:{:?}",
                 inf_path.display(),
-                GetLastError().0
+                ret
             ));
         }
     }
@@ -293,22 +290,22 @@ pub fn create_device(
     if wait_result != WAIT_OBJECT_0 {
         unsafe {
             return Err(anyhow!(
-                "create sw device error: {}, last_error:{}",
+                "create sw device error: {}, last_error:{:?}",
                 wait_result.0,
-                GetLastError().0
+                GetLastError()
             ));
         }
     }
     if !context.success {
         unsafe {
             bail!(
-                "create sw device error in callback, last error:{}",
-                GetLastError().0
+                "create sw device error in callback, last error:{:?}",
+                GetLastError()
             )
         }
     }
 
-    Ok((HSWDEVICE(sw_device), context.instance_id))
+    Ok((sw_device, context.instance_id))
 }
 
 unsafe extern "system" fn creation_callback(
@@ -327,7 +324,7 @@ unsafe extern "system" fn creation_callback(
         //println!("device creation device_id error, {}",_create_result);
     }
     let ret = windows::Win32::System::Threading::SetEvent(context.event);
-    if !ret.as_bool() {
+    if !ret.is_ok() {
         //println!("set event error, {}", GetLastError().0)
     }
 }
@@ -434,7 +431,7 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
             KEY_READ | KEY_ENUMERATE_SUB_KEYS,
             &mut key,
         )
-    } != NO_ERROR
+    }.is_ok()
     {
         unsafe { RegCloseKey(key) };
         bail!("can not open registry key: {}", key_path_str);
@@ -459,14 +456,16 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
                 )
             };
 
-            if ret == ERROR_NO_MORE_ITEMS {
-                break;
-            } else if ret != NO_ERROR {
-                bail!(
-                    "can not enum registry key: {}, error:{:?}",
-                    key_path_str,
-                    ret
-                )
+            if let Err(e) = ret {
+                if e.code() ==  ERROR_IO_PENDING.into() {
+                    break;
+                }else {
+                    bail!(
+                        "can not enum registry key: {}, error:{:?}",
+                        key_path_str,
+                        e
+                    )
+                }
             }
 
             let instance_name_key =

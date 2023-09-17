@@ -1,6 +1,7 @@
 mod device_ops;
 pub mod overlapped_file;
 
+use std::os::windows::io::FromRawHandle;
 use std::path::Path;
 use crate::overlapped_file::WinOverlappedFile;
 use anyhow::bail;
@@ -11,7 +12,7 @@ pub use device_ops::AdapterDevice;
 use std::sync::Arc;
 use tokio::io;
 use windows::core::GUID;
-use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::System::IO::OVERLAPPED;
 
 pub struct OverlappedWrap {
@@ -29,7 +30,7 @@ unsafe impl Send for ReadFile {}
 
 impl ReadFile {
     // this would block...
-    pub fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    pub fn read(&mut self, buf: &mut [u8]) -> anyhow::Result<usize> {
         self.file.read(buf, &mut self.overlapped)
     }
 }
@@ -49,7 +50,7 @@ unsafe impl Send for WriteFile {}
 
 impl WriteFile {
     //this would Finish quick
-    pub fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    pub fn write(&mut self, buf: &[u8]) -> anyhow::Result<usize> {
         self.file.write(buf, &mut self.overlapped)
     }
 }
@@ -85,6 +86,12 @@ pub fn create_async_tun<T:AsRef<Path>>(device_id: &GUID, name: &str, inf_path: T
         device,
     ))
 }
+pub fn create_block_tun<T:AsRef<Path>>(device_id: &GUID, name: &str, inf_path: T) -> anyhow::Result<(AdapterDevice, HANDLE)> {
+    let device = init_device(device_id, name, inf_path/*"C:/DriverTest/Drivers/ForTun.inf"*/)?;
+    let file = device.start_adapter()?;
+    Ok((device,file))
+}
+
 
 /*
 pub struct TunSocket {
