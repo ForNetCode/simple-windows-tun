@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
 
 
     let mut read_buf:Vec<u8> = Vec::with_capacity(2048);
-    let mut i = 10;
+    let mut i = 0;
     loop {
         let mut size = 0;
         let ret = unsafe {

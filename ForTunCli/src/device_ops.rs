@@ -16,9 +16,9 @@ use windows::Win32::Devices::Enumeration::Pnp::{
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion};
-use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_NO_MORE_ITEMS, HANDLE, NO_ERROR, WAIT_OBJECT_0, ERROR_IO_PENDING};
+use windows::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, WAIT_OBJECT_0, ERROR_IO_PENDING};
 use windows::Win32::NetworkManagement::IpHelper::GetAdapterIndex;
-use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING};
+use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
     KEY_ENUMERATE_SUB_KEYS, KEY_READ,
@@ -67,7 +67,7 @@ impl AdapterDevice {
                 FILE_SHARE_NONE,
                 None,
                 OPEN_EXISTING,
-                FILE_ATTRIBUTE_SYSTEM | FILE_FLAG_OVERLAPPED,
+                FILE_ATTRIBUTE_SYSTEM|FILE_FLAG_OVERLAPPED,
                 None,
             )
         }
