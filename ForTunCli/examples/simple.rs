@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     let (mut read,mut write, device) = create_async_tun(&guid, "ForTunTest", inf_path).unwrap();
     net_config(device.instance_id.clone(), "10.0.0.2", "255.255.0.0",1428);
 
-    let mut read_buf:Vec<u8> = Vec::with_capacity(2048);
+    let mut read_buf:Vec<u8> = vec![0;2048];
 
     let task = tokio::spawn(async move {
         while let Ok(size) = read.read(read_buf.as_mut_slice()) {
@@ -25,14 +25,13 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    //let z = write.write(b"1231");
-    //println!("{:?}", z);
-    //tokio::time::sleep(Duration::from_secs(30)).await;
-    let addr = "10.0.0.2:8080";
+
     /*
+    let addr = "10.0.0.2:8080";
+
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
-    //
+
     let mut to_send = None;
     let mut buf = vec![0;1024];
     tokio::spawn(async move {
@@ -45,8 +44,8 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     tokio::time::sleep(Duration::from_secs(1)).await;
-     */
-    /*
+
+
     let socket = UdpSocket::bind("10.0.0.2:8089").await?;
     const MAX_DATAGRAM_SIZE: usize = 1204;
     socket.connect(addr).await?;
@@ -61,8 +60,9 @@ async fn main() -> anyhow::Result<()> {
         String::from_utf8_lossy(&data[..len])
     );
     tokio::time::sleep(Duration::from_secs(2)).await;
-
-     */
+*/
     let _ = task.await;
+
+
     Ok(())
 }
