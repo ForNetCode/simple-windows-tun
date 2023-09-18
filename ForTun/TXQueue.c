@@ -47,13 +47,14 @@ ForTunTxQueueSetNotificationEnabled(_In_ NETPACKETQUEUE PacketQueue, _In_ BOOLEA
 VOID
 ForTunTxQueueAdvance(_In_ NETPACKETQUEUE PacketQueue)
 {	
-	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "%!FUNC! Entry");
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_ADAPTER, "%!FUNC! Entry");
 
 	PTXQUEUE_CONTEXT context = TxQueueGetContext(PacketQueue);
 	PDEVICE_CONTEXT deviceContext = context->AdapterContext->DeviceContext;
 
 	NET_RING_COLLECTION const* ringCollection = context->RingCollection;
 	NET_RING_PACKET_ITERATOR pi = NetRingGetAllPackets(ringCollection);
+	SIZE_T length = 0;
 
 	NTSTATUS status = STATUS_SUCCESS;
 	// in
@@ -63,6 +64,7 @@ ForTunTxQueueAdvance(_In_ NETPACKETQUEUE PacketQueue)
 			// Process
 			NET_RING_FRAGMENT_ITERATOR fi = NetPacketIteratorGetFragments(&pi);
 			WDFREQUEST request;
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "TXQueue begin to acquire readLock");
 			WdfSpinLockAcquire(deviceContext->readLock);
 			status = WdfIoQueueRetrieveNextRequest(deviceContext->PendingReadQueue, &request);
 			UCHAR* buffer = NULL;
@@ -89,11 +91,11 @@ ForTunTxQueueAdvance(_In_ NETPACKETQUEUE PacketQueue)
 			}
 			
 			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "TXQueue begin to release readLock for %!STATUS!", status);
 				WdfSpinLockRelease(deviceContext->readLock);
 				NetFragmentIteratorSet(&fi);
 			}
 			else {			
-				SIZE_T length = 0;
 				while (NetFragmentIteratorHasAny(&fi)) {
 					NET_FRAGMENT* fragment = NetFragmentIteratorGetFragment(&fi);
 					BYTE* netBuf = (BYTE *)NetExtensionGetFragmentVirtualAddressOffset(fragment, &context->VirtualAddressExtension, NetFragmentIteratorGetIndex(&fi));
@@ -108,12 +110,15 @@ ForTunTxQueueAdvance(_In_ NETPACKETQUEUE PacketQueue)
 					NetFragmentIteratorAdvance(&fi);
 				}
 				if (buffer) {
+					TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "wdf request complete length: %I64d", length);
 					WdfRequestCompleteWithInformation(request, status, length);
 				}
 				else if(poolQueueItem){
 					poolQueueItem->DataSize = length;
+					TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "push pool queue length: %I64d", length);
 					PoolQueuePutToQueue(deviceContext->PoolQueue, poolQueueItem);
 				}
+				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_ADAPTER, "TXQueue begin to release readLock");
 				WdfSpinLockRelease(deviceContext->readLock);
 			}
 

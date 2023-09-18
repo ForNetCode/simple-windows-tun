@@ -66,6 +66,7 @@ Return Value:
     //
     WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(
          &queueConfig,
+        //WdfIoQueueDispatchParallel
          WdfIoQueueDispatchSequential
         );
 
@@ -94,10 +95,7 @@ Return Value:
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_QUEUE, "create read queue failed %!STATUS!", status);
         return status;
     }
-    //status = WdfDeviceConfigureRequestDispatching(Device, readQueue, WdfRequestTypeRead);
-    //if (!NT_SUCCESS(status)) {    
-    //    goto done;
-    //}
+
     WDFQUEUE writeQueue;
     WDF_IO_QUEUE_CONFIG_INIT(&queueConfig, WdfIoQueueDispatchManual);
     status = WdfIoQueueCreate(Device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &writeQueue);
@@ -106,22 +104,10 @@ Return Value:
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_QUEUE, "create write queue failed %!STATUS!", status);
         return status;
     }
-    //status = WdfDeviceConfigureRequestDispatching(Device, writeQueue, WdfRequestTypeWrite);
+
     PDEVICE_CONTEXT device_context = DeviceGetContext(Device);
 
-    /*
-    WDF_OBJECT_ATTRIBUTES attr;
-    WDF_OBJECT_ATTRIBUTES_INIT(&attr);
-    attr.ParentObject = Device;
-    WDFMEMORY BufferHandler;
-    status = WdfMemoryCreate(&attr, NonPagedPool, 'FTun', READ_POOL_SIZE, &BufferHandler, &device_context->PReadBuffer);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_QUEUE, "create ReadBuffer failed %!STATUS!", status);
-        goto done;
-    }
-    RtlZeroMemory(device_context->PReadBuffer, READ_POOL_SIZE);
-    RingBufferInitialize(&device_context->ReadRingBuffer, device_context->PReadBuffer, READ_POOL_SIZE);
-     */
+
     PPOOL_QUEUE poolQueue;
     status = PoolQueueCreate(&poolQueue);
     if (!NT_SUCCESS(status)) {
@@ -277,6 +263,7 @@ ForTunEvtIoRead(
     IN size_t Length
 )
 {
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_QUEUE, "Io Read has trigger");
     UNREFERENCED_PARAMETER(Length);
     NTSTATUS status;
 
@@ -294,6 +281,7 @@ ForTunEvtIoRead(
     PPOOL_QUEUE_ITEM poolQueueItem = PoolQueueGetFromQueue(deviceContext->PoolQueue);
 
     if (poolQueueItem) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_QUEUE, "Pool Has Item");
         RtlCopyMemory(readBuffer, &poolQueueItem->Data, poolQueueItem->DataSize);
         size_t dataSize = poolQueueItem->DataSize;
         PoolQueuePutToPool(deviceContext->PoolQueue, poolQueueItem);
@@ -312,6 +300,7 @@ ForTunEvtIoRead(
     }*/
     else {    
         status = WdfRequestForwardToIoQueue(Request, deviceContext->PendingReadQueue);
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_QUEUE, "Append Request To Queue");
         WdfSpinLockRelease(deviceContext->readLock);
         if (!NT_SUCCESS(status)) {
             goto logErr;
@@ -332,6 +321,7 @@ ForTunEvtIoWrite(
 )
 {
     UNREFERENCED_PARAMETER(Length);
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_QUEUE, "Write item");
 
     PDEVICE_CONTEXT context = DeviceGetContext(WdfIoQueueGetDevice(Queue));
 
@@ -345,6 +335,7 @@ ForTunEvtIoWrite(
 
     //this should always be success
     ForTunAdapterNotifyRx(context->Adapter);
+    
 
     return;
 logErr:
