@@ -15,10 +15,10 @@ use windows::Win32::Devices::Enumeration::Pnp::{
     SWDeviceCapabilitiesDriverRequired, SWDeviceCapabilitiesSilentInstall, SwDeviceClose,
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion};
+use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion, DEVPROP_TYPE_STRING_LIST};
 use windows::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, WAIT_OBJECT_0, ERROR_IO_PENDING};
 use windows::Win32::NetworkManagement::IpHelper::GetAdapterIndex;
-use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING};
+use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
     KEY_ENUMERATE_SUB_KEYS, KEY_READ,
@@ -35,11 +35,6 @@ pub const FOR_TUN_IOCTL_OPEN_ADAPTER: u32 = ctl_code!(0x00000022, 0x0801, 0, 0);
 pub const FOR_TUN_INTERFACE_GUID: &str = "f579d929-6c40-4e5a-8532-180199a4e321";
 pub const FOR_TUN_HWID: &str = "ForTun";
 
-// pub const FOR_TUN_IOCTL_OPEN_ADAPTER: u32 = ctl_code!(0x00000022, 6, 0, 0);
-// pub const FOR_TUN_INTERFACE_GUID: &str = "CAC88484-7515-4C03-82E6-71A87ABAC361";
-// pub const FOR_TUN_HWID: &str = "ovpn-dco";
-
-//const FOR_TUN_ENUMERATOR:PCWSTR = w!("SWD\\ForTun");
 pub const FOR_TUN_DEV_CLASS: GUID = GUID_DEVCLASS_NET;
 
 pub struct AdapterDevice {
@@ -101,6 +96,9 @@ pub fn init_device<T:AsRef<Path>>(
     inf_path: T,
 ) -> anyhow::Result<AdapterDevice> {
     let devices = enum_device(&FOR_TUN_DEV_CLASS, FOR_TUN_HWID)?;
+    for (guid, version_str) in devices.iter() {
+        tracing::debug!("device: {}, version: {}", guid, version_str);
+    }
     if devices.is_empty() {
         // There is no devices
         install_driver(inf_path)?; // TODO: this may install multiple times. need add more exact function to check if driver installed.
@@ -604,7 +602,6 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
         return Err(anyhow!("Fail to get device list size: {:?}", cr));
     }
 
-    //let mut buffer = Vec::with_capacity(device_list_len as usize);
     let mut buffer = vec![0; device_list_len as usize];
 
     let cr = unsafe { CM_Get_Device_ID_ListW(device_class_id, &mut buffer, flag) };
@@ -613,7 +610,7 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
     }
 
     let mut dev_inst: u32 = 0;
-    let mut property_value: Vec<u8> = Vec::with_capacity(2048);
+    let mut property_value: Vec<u8> = vec![0;2048];
     let mut index = 0;
     let mut device_id = PCWSTR::from_raw(buffer[index..].as_mut_ptr());
 
@@ -640,7 +637,6 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
             }
         } else {
             let name = _cm_get_string_property(dev_inst,&DEVPKEY_Device_HardwareIds, &mut property_value)?;
-
             if name == hwid {
                 unsafe {
                     if let Ok(device_id) = device_id.to_string() {
@@ -664,9 +660,7 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
 
 fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Vec<u8>) -> anyhow::Result<String> {
     let mut property_type: DEVPROPTYPE = DEVPROPTYPE::default();
-
-    let mut property_value_length = 0;
-
+    let mut property_value_length = property_value.len() as u32;
     unsafe {
         CM_Get_DevNode_PropertyW(
             dev_inst,
@@ -677,12 +671,20 @@ fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Ve
             0,
         );
     }
+
+    //8210 property string list
     if property_value_length > 0 {
         unsafe {
-            property_value.set_len(property_value_length as usize);
+            property_value.set_len((property_value_length as usize)*2);
         };
 
+        if property_type == DEVPROP_TYPE_STRING_LIST {
+
+            //get_pcwstr_list()
+        }
         let value = unsafe {
+            //let z= PCWSTR(property_value.as_ptr() as *mut u16);
+            //println!("zx:{:?}", z.to_string());
             PCWSTR::from_raw(property_value.as_mut_ptr().cast::<u16>()).to_string()
         };
         return Ok(value?);

@@ -1,5 +1,5 @@
 use anyhow::bail;
-use windows::Win32::Foundation::{CloseHandle, GetLastError, BOOL, HANDLE, ERROR_IO_PENDING};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, ERROR_IO_PENDING};
 use windows::Win32::Storage::FileSystem::{ReadFile, WriteFile};
 use windows::Win32::System::IO::{CancelIoEx, DeviceIoControl, GetOverlappedResult, OVERLAPPED};
 
