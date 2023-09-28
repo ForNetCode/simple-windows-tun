@@ -14,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
     let inf_path = "C:/DriverTest/Drivers/ForTun.inf";
 
     let (mut read,mut write, device) = create_async_tun(&guid, "ForTunTest", inf_path).unwrap();
-    net_config(device.instance_id.clone(), "10.0.0.2", "255.255.0.0",1428);
+    net_config(device.instance_id.clone(), "10.0.0.2", "255.255.0.0",1428).unwrap();
 
     let mut read_buf:Vec<u8> = vec![0;2048];
 

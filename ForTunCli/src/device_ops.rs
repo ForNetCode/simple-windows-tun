@@ -413,15 +413,13 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
 
     let mut key = HKEY::default();
 
-    let _display_name_buf: [u16; 1024] = unsafe { zeroed() };
-
     let key_path_str =
         format!("SYSTEM\\CurrentControlSet\\Control\\Class\\{{{FOR_TUN_DEV_CLASS:?}}}");
 
     let key_path = HSTRING::from(key_path_str.clone());
     let key_path = PCWSTR(key_path.as_ptr());
 
-    if unsafe {
+    if !unsafe {
         RegOpenKeyExW(
             HKEY_LOCAL_MACHINE,
             key_path,
@@ -431,7 +429,7 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
         )
     }.is_ok()
     {
-        unsafe { RegCloseKey(key) };
+        let _ = unsafe { RegCloseKey(key) };
         bail!("can not open registry key: {}", key_path_str);
     } else {
         let mut value_buffer = vec![0; 200];
