@@ -32,4 +32,4 @@ MakeCab /f "fortun.ddf"
 ## TODO
 1. release rust client code to crate.io
 2. support win10 and test.
-3. add Git Action to build unsigned files.
+3. add Git Action to build unsigned driver.
