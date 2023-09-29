@@ -20,7 +20,7 @@ Because of the EV certifacte, It may be very hard for developer to build the cer
 # after build the driver with Visual Studio.
 cp .\ForTun\fortun.ddf .\ForTun\x64\Release\ForTun\
 cp .\ForTun\x64\Release\ForTun.pdb  .\ForTun\x64\Release\ForTun\ForTun.pdb
-cd .\ForTun\x64\Realse\ForTun
+cd .\ForTun\x64\Release\ForTun
 MakeCab /f "fortun.ddf"
 # sign dist1/fortun.cab with EV certifacter
 # go to https://partner.microsoft.com/zh-cn/dashboard/hardware/Search to submit and signed with Windows.
