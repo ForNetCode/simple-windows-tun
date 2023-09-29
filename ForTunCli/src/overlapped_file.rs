@@ -1,5 +1,5 @@
-use std::io;
-use windows::Win32::Foundation::{CloseHandle, GetLastError, BOOL, ERROR_IO_PENDING, HANDLE};
+use anyhow::bail;
+use windows::Win32::Foundation::{CloseHandle, HANDLE, ERROR_IO_PENDING};
 use windows::Win32::Storage::FileSystem::{ReadFile, WriteFile};
 use windows::Win32::System::IO::{CancelIoEx, DeviceIoControl, GetOverlappedResult, OVERLAPPED};
 
@@ -9,12 +9,8 @@ pub struct WinOverlappedFile {
 
 impl WinOverlappedFile {
     pub fn new(file: HANDLE) -> anyhow::Result<Self> {
-        //let mut overlapped = OVERLAPPED::default();
-        //overlapped.hEvent = unsafe {CreateEventW(None, false, false, None)}?;
-
         Ok(Self {
             file,
-            //read_overlapped: overlapped,
         })
     }
 
@@ -26,7 +22,7 @@ impl WinOverlappedFile {
         lpoutbuffer: Option<*mut ::core::ffi::c_void>,
         noutbuffersize: u32,
         lpbytesreturned: Option<*mut u32>,
-    ) -> BOOL {
+    ) -> windows::core::Result<()> {
         unsafe {
             DeviceIoControl(
                 self.file,
@@ -42,33 +38,31 @@ impl WinOverlappedFile {
     }
 
     // driver would wait
-    pub fn read(&self, buf: &mut [u8], overlapped: &mut OVERLAPPED) -> io::Result<usize> {
+    pub fn read(&self, buf: &mut [u8], overlapped: &mut OVERLAPPED) -> anyhow::Result<usize> {
         let mut size = 0;
         let ret = unsafe {
             ReadFile(
                 self.file,
-                Some(buf.as_mut_ptr() as _),
-                buf.len() as u32,
+                Some(buf),
                 Some(&mut size),
                 Some(overlapped),
             )
         };
-        return if ret.as_bool() {
-            //success
-            Ok(size as usize)
-        } else {
-            let last_error = unsafe { GetLastError() };
-            if last_error == ERROR_IO_PENDING {
-                let r = unsafe { GetOverlappedResult(self.file, overlapped, &mut size, true) };
-                if r.as_bool() {
-                    Ok(size as usize)
+        match ret {
+            Ok(()) => Ok(size as usize),
+            Err(e) => {
+                if e.code() == ERROR_IO_PENDING.into() {
+                    let r = unsafe { GetOverlappedResult(self.file, overlapped, &mut size, true) };
+                    if r.is_ok() {
+                        Ok(size as usize)
+                    } else {
+                        bail!("GetOverlappedResult error: {:?}",r)
+                    }
                 } else {
-                    Err(io::Error::from_raw_os_error(last_error.0 as i32))
+                    bail!("read file error: {:?}",e)
                 }
-            } else {
-                Err(io::Error::from_raw_os_error(last_error.0 as i32))
             }
-        };
+        }
     }
     /*
     pub fn read_result(&self, overlapped: &mut OVERLAPPED) -> io::Result<Option<usize>> {
@@ -94,7 +88,7 @@ impl WinOverlappedFile {
     }*/
 
     // this is quick , so block
-    pub fn write(&self, buf: &[u8], overlapped: &mut OVERLAPPED) -> io::Result<usize> {
+    pub fn write(&self, buf: &[u8], overlapped: &mut OVERLAPPED) -> anyhow::Result<usize> {
         let mut size = 0;
         let r = unsafe {
             WriteFile(
@@ -104,32 +98,26 @@ impl WinOverlappedFile {
                 Some(overlapped),
             )
         };
-        return if r.as_bool() {
-            Ok(size as usize)
-        } else {
-            let last_error = unsafe { GetLastError() };
-            if last_error == ERROR_IO_PENDING {
-                let r = unsafe { GetOverlappedResult(self.file, overlapped, &mut size, true) };
-                if r.as_bool() {
-                    Ok(size as usize)
+        match r {
+            Ok(()) => Ok(size as usize),
+            Err(e) => {
+                if e.code() == ERROR_IO_PENDING.into() {
+                    let r = unsafe { GetOverlappedResult(self.file, overlapped, &mut size, true) };
+                    if r.is_ok() {
+                        Ok(size as usize)
+                    } else {
+                        bail!("GetOverlappedResult Error: {:?}",r)
+                    }
                 } else {
-                    Err(io::Error::from_raw_os_error(last_error.0 as i32))
+                    bail!("write file error: {:?}",e)
                 }
-            } else {
-                Err(io::Error::from_raw_os_error(last_error.0 as i32))
             }
-        };
+        }
     }
 
-    pub fn cancel_io(&self, overlapped: &mut OVERLAPPED) -> io::Result<()> {
-        if unsafe { CancelIoEx(self.file, Some(overlapped)) }.as_bool() {
-            Ok(())
-        } else {
-            Err(io::Error::last_os_error())
-            //Err(io::Error::from_raw_os_error(last_error.0 as i32))
-            //Err(anyhow!("read file fail:{:?}", last_error))
-            //Err(anyhow!("cancel file fail:{:?}", unsafe {GetLastError()}))
-        }
+
+    pub fn cancel_io(&self, overlapped: &mut OVERLAPPED) -> windows::core::Result<()> {
+        unsafe { CancelIoEx(self.file, Some(overlapped)) }
     }
 }
 
