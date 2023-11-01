@@ -1,9 +1,0 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="msi" Manufacturer="TODO Manufacturer" Version="1.0.0.0" UpgradeCode="e12cf776-eba1-4ce3-9a8b-2698ff56911d">
-    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
-
-    <Feature Id="Main">
-      <ComponentGroupRef Id="ExampleComponents" />
-    </Feature>
-  </Package>
-</Wix>

@@ -1,5 +1,0 @@
-﻿<Project Sdk="WixToolset.Sdk/4.0.2">
-  <ItemGroup>
-    <ProjectReference Include="..\ForTun\ForTun.vcxproj" />
-  </ItemGroup>
-</Project>
