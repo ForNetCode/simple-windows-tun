@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "ForTunCli",
+    "DriverInstall"
+]
+resolver = "2"
