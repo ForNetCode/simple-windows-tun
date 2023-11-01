@@ -1,5 +1,5 @@
 [package]
-name = "DriverInstall"
+name = "fortun-driver-install"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 fortun-cli = { path = "../ForTunCli"}
+rust-embed="8.0.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
