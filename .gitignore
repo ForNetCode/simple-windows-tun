@@ -3,6 +3,9 @@
 *.userosscache
 *.sln.docstates
 
+.idea
+target
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

@@ -9,6 +9,7 @@ pub use device_ops::get_net_index;
 pub use device_ops::init_device;
 pub use device_ops::net_config;
 pub use device_ops::AdapterDevice;
+pub use device_ops::install_driver;
 use std::sync::Arc;
 use windows::core::GUID;
 use windows::Win32::Foundation::CloseHandle;
