@@ -1,10 +1,16 @@
+use std::env;
+use fortun_cli::install_driver;
+
 mod asset;
 
-fn main() {
+fn main() -> anyhow::Result<()>{
     tracing_subscriber::fmt::init();
-    let temp_dir = std::env::temp_dir();
-    //
+    //let driver_files = vec!["fortun.cat", "fortun.inf", "fortun.sys"];
+    let driver_path = "./driver/fortun.inf";
+
+    let driver_path = env::current_exe().unwrap().parent().unwrap().join(driver_path);
+    let driver_path = driver_path.to_str().unwrap();
+    install_driver(driver_path)
     //let data = asset::Asset::get("abc.txt").unwrap();
-    //let data =  std::str::from_utf8(data.data.as_ref());
-    //println!("Hello, world! {data:?}");
+
 }

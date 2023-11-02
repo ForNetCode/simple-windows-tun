@@ -1,0 +1,37 @@
+name: fornet driver installer build
+on:
+  workflow_dispatch:
+jobs:
+  WindowsCommandLine:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          profile: minimal
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            client/target/
+          key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: windows-cargo
+      - name: build
+        shell: pwsh
+        run: ./windows-build.ps1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: fornet-driver-install
+          path: release/*
+          if-no-files-found: error
+

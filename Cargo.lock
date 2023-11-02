@@ -3,16 +3,6 @@
 version = 3
 
 [[package]]
-name = "DriverInstall"
-version = "0.1.0"
-dependencies = [
- "fortun-cli",
- "rust-embed",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -168,6 +158,17 @@ dependencies = [
  "tracing-test",
  "version-compare",
  "windows",
+]
+
+[[package]]
+name = "fortun-driver-install"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fortun-cli",
+ "rust-embed",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

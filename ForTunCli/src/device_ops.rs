@@ -141,7 +141,7 @@ pub fn init_device<T:AsRef<Path>>(
     Ok(device)
 }
 
-fn install_driver<T:AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
+pub fn install_driver<T:AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
     let inf_path = HSTRING::from(inf_path.as_ref());
     let inf_path = PCWSTR(inf_path.as_ptr());
 
