@@ -2,14 +2,14 @@ mod device_ops;
 pub mod overlapped_file;
 
 //use std::os::windows::io::FromRawHandle;
-use std::path::Path;
 use crate::overlapped_file::WinOverlappedFile;
 use anyhow::bail;
 pub use device_ops::get_net_index;
 pub use device_ops::init_device;
+pub use device_ops::install_driver;
 pub use device_ops::net_config;
 pub use device_ops::AdapterDevice;
-pub use device_ops::install_driver;
+use std::path::Path;
 use std::sync::Arc;
 use windows::core::GUID;
 use windows::Win32::Foundation::CloseHandle;
@@ -63,8 +63,14 @@ impl Drop for WriteFile {
 
 pub type TunSocket = (ReadFile, WriteFile, AdapterDevice);
 
-pub fn create_async_tun<T:AsRef<Path>>(device_id: &GUID, name: &str, inf_path: T) -> anyhow::Result<TunSocket> {
-    let device = init_device(device_id, name, inf_path/*"C:/DriverTest/Drivers/ForTun.inf"*/)?;
+pub fn create_async_tun<T: AsRef<Path>>(
+    device_id: &GUID,
+    name: &str,
+    inf_path: T,
+) -> anyhow::Result<TunSocket> {
+    let device = init_device(
+        device_id, name, inf_path, /*"C:/DriverTest/Drivers/ForTun.inf"*/
+    )?;
     let file = device.start_adapter()?;
     let file = match WinOverlappedFile::new(file) {
         Ok(file) => Arc::new(file),

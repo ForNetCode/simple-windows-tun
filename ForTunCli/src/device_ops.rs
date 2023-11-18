@@ -9,16 +9,33 @@ use cidr_utils::cidr::IpCidr;
 use std::thread::sleep;
 use std::time::Duration;
 use version_compare::Version;
-use windows::core::{wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR, w};
-use windows::Win32::Devices::DeviceAndDriverInstallation::{CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW, SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS, CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM, CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET, HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA, SP_REMOVEDEVICE_PARAMS};
+use windows::core::{w, wcslen, GUID, HRESULT, HSTRING, PCWSTR, PWSTR};
+use windows::Win32::Devices::DeviceAndDriverInstallation::{
+    CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW,
+    CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Locate_DevNodeW,
+    SetupCopyOEMInfW, SetupDiSetClassInstallParamsW, CM_GETIDLIST_FILTER_CLASS,
+    CM_GET_DEVICE_INTERFACE_LIST_ALL_DEVICES, CM_LOCATE_DEVINST_NORMAL, CM_LOCATE_DEVNODE_PHANTOM,
+    CR_NO_SUCH_DEVNODE, CR_SUCCESS, DIF_REMOVE, DI_REMOVEDEVICE_GLOBAL, GUID_DEVCLASS_NET,
+    HDEVINFO, SPOST_PATH, SP_CLASSINSTALL_HEADER, SP_COPY_NEWER, SP_DEVINFO_DATA,
+    SP_REMOVEDEVICE_PARAMS,
+};
 use windows::Win32::Devices::Enumeration::Pnp::{
     SWDeviceCapabilitiesDriverRequired, SWDeviceCapabilitiesSilentInstall, SwDeviceClose,
     SwDeviceCreate, HSWDEVICE, SW_DEVICE_CREATE_INFO,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_ClassGuid, DEVPKEY_Device_FriendlyName, DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROPTYPE, DEVPROPKEY, DEVPKEY_Device_DriverVersion, DEVPROP_TYPE_STRING_LIST};
-use windows::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, WAIT_OBJECT_0, ERROR_IO_PENDING};
+use windows::Win32::Devices::Properties::{
+    DEVPKEY_Device_ClassGuid, DEVPKEY_Device_DriverVersion, DEVPKEY_Device_FriendlyName,
+    DEVPKEY_Device_HardwareIds, DEVPROPCOMPKEY, DEVPROPERTY, DEVPROPKEY, DEVPROPTYPE,
+    DEVPROP_STORE_SYSTEM, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROP_TYPE_STRING_LIST,
+};
+use windows::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, WAIT_OBJECT_0,
+};
 use windows::Win32::NetworkManagement::IpHelper::GetAdapterIndex;
-use windows::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING};
+use windows::Win32::Storage::FileSystem::{
+    CreateFileW, FILE_ATTRIBUTE_SYSTEM, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
+    FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING,
+};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
     KEY_ENUMERATE_SUB_KEYS, KEY_READ,
@@ -53,16 +70,15 @@ impl AdapterDevice {
     }
 
     pub(crate) fn start_adapter(&self) -> anyhow::Result<HANDLE> {
-
         let file = unsafe {
             let name = HSTRING::from(self.interface_id.clone());
             CreateFileW(
                 PCWSTR(name.as_ptr()),
-                FILE_GENERIC_READ.0| FILE_GENERIC_WRITE.0,
+                FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
                 FILE_SHARE_NONE,
                 None,
                 OPEN_EXISTING,
-                FILE_ATTRIBUTE_SYSTEM|FILE_FLAG_OVERLAPPED,
+                FILE_ATTRIBUTE_SYSTEM | FILE_FLAG_OVERLAPPED,
                 None,
             )
         }
@@ -90,7 +106,7 @@ impl AdapterDevice {
     }
 }
 
-pub fn init_device<T:AsRef<Path>>(
+pub fn init_device<T: AsRef<Path>>(
     device_guid: &GUID,
     name: &str,
     inf_path: T,
@@ -103,11 +119,14 @@ pub fn init_device<T:AsRef<Path>>(
         // There is no devices
         install_driver(inf_path)?; // TODO: this may install multiple times. need add more exact function to check if driver installed.
     } else {
-        let current_version = Version::from(env!( "CARGO_PKG_VERSION" )).unwrap();
-        let has_old = devices.iter().find(|(_, version_str)| {
-            let working_driver_version:Version = Version::from(version_str).unwrap();
-            current_version > working_driver_version
-        }).is_some();
+        let current_version = Version::from(env!("CARGO_PKG_VERSION")).unwrap();
+        let has_old = devices
+            .iter()
+            .find(|(_, version_str)| {
+                let working_driver_version: Version = Version::from(version_str).unwrap();
+                current_version > working_driver_version
+            })
+            .is_some();
         if has_old {
             bail!("There is running old driver device, please stop it before running app")
         }
@@ -141,7 +160,7 @@ pub fn init_device<T:AsRef<Path>>(
     Ok(device)
 }
 
-pub fn install_driver<T:AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
+pub fn install_driver<T: AsRef<Path>>(inf_path: T) -> anyhow::Result<()> {
     let inf_path = HSTRING::from(inf_path.as_ref());
     let inf_path = PCWSTR(inf_path.as_ptr());
 
@@ -427,7 +446,8 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
             KEY_READ | KEY_ENUMERATE_SUB_KEYS,
             &mut key,
         )
-    }.is_ok()
+    }
+    .is_ok()
     {
         let _ = unsafe { RegCloseKey(key) };
         bail!("can not open registry key: {}", key_path_str);
@@ -453,14 +473,10 @@ pub fn get_net_index(device_instance_id: String) -> anyhow::Result<u32> {
             };
 
             if let Err(e) = ret {
-                if e.code() ==  ERROR_IO_PENDING.into() {
+                if e.code() == ERROR_IO_PENDING.into() {
                     break;
-                }else {
-                    bail!(
-                        "can not enum registry key: {}, error:{:?}",
-                        key_path_str,
-                        e
-                    )
+                } else {
+                    bail!("can not enum registry key: {}, error:{:?}", key_path_str, e)
                 }
             }
 
@@ -608,11 +624,11 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
     }
 
     let mut dev_inst: u32 = 0;
-    let mut property_value: Vec<u8> = vec![0;2048];
+    let mut property_value: Vec<u8> = vec![0; 2048];
     let mut index = 0;
     let mut device_id = PCWSTR::from_raw(buffer[index..].as_mut_ptr());
 
-    let mut result: Vec<(String,String)> = Vec::new();
+    let mut result: Vec<(String, String)> = Vec::new();
 
     while buffer[index] != 0 && !device_id.is_null() {
         let cr = unsafe {
@@ -634,11 +650,19 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
                 }
             }
         } else {
-            let name = _cm_get_string_property(dev_inst,&DEVPKEY_Device_HardwareIds, &mut property_value)?;
+            let name = _cm_get_string_property(
+                dev_inst,
+                &DEVPKEY_Device_HardwareIds,
+                &mut property_value,
+            )?;
             if name == hwid {
                 unsafe {
                     if let Ok(device_id) = device_id.to_string() {
-                        let version = _cm_get_string_property(dev_inst, &DEVPKEY_Device_DriverVersion, &mut property_value)?;
+                        let version = _cm_get_string_property(
+                            dev_inst,
+                            &DEVPKEY_Device_DriverVersion,
+                            &mut property_value,
+                        )?;
                         result.push((device_id, version));
                     }
                 }
@@ -656,7 +680,11 @@ fn enum_device(device_class_id: &GUID, hwid: &str) -> anyhow::Result<Vec<(String
     Ok(result)
 }
 
-fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Vec<u8>) -> anyhow::Result<String> {
+fn _cm_get_string_property(
+    dev_inst: u32,
+    key: &DEVPROPKEY,
+    property_value: &mut Vec<u8>,
+) -> anyhow::Result<String> {
     let mut property_type: DEVPROPTYPE = DEVPROPTYPE::default();
     let mut property_value_length = property_value.len() as u32;
     unsafe {
@@ -673,7 +701,7 @@ fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Ve
     //8210 property string list
     if property_value_length > 0 {
         unsafe {
-            property_value.set_len((property_value_length as usize)*2);
+            property_value.set_len((property_value_length as usize) * 2);
         };
 
         if property_type == DEVPROP_TYPE_STRING_LIST {
@@ -686,7 +714,6 @@ fn _cm_get_string_property(dev_inst:u32, key:&DEVPROPKEY, property_value:&mut Ve
             PCWSTR::from_raw(property_value.as_mut_ptr().cast::<u16>()).to_string()
         };
         return Ok(value?);
-
     }
     bail!("can not read device property key {:?}", key)
 }
