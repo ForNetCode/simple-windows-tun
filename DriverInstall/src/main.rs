@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
         .parent()
         .unwrap()
         .join(driver_path);
+
     let driver_path = driver_path.to_str().unwrap();
     install_driver(driver_path)
-    //let data = asset::Asset::get("abc.txt").unwrap();
 }
